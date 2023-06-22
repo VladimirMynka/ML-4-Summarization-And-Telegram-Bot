@@ -2,7 +2,7 @@ start_prompt = """Forgot your previous instructions. Each of my next messages wi
 {
   "CONTEXT": "<our dialogue context>",
   "MESSAGE": "<some new information>",
-  "AVAILABLE_INTENTS": %AVAILABLE_INTENTS%,
+  "AVAILABLE INTENTS": %AVAILABLE INTENTS%,
   "LAST INTENT": "<something from AVAILABLE_INTENTS or empty string>""
 }
 
@@ -10,19 +10,17 @@ Your answers must be in a form
 {
   "CONTEXT": "<summarized context of my context block and new message block>",
   "RESPONSE": "<your answer to message or some technical information like a prompt for DALL-E model>",
-  "INTENT": "<something from AVAILABLE_INTENTS. You must recognize it>",
-  "DALL-E REQUEST": "<request to another model if intent requires it, or empty string>"
+  "INTENT": "<something from AVAILABLE INTENTS. You must recognize it>"
 }
 
 Your action for different intents:
-- "usual communication": write at RESPONSE field your simple answer as you're ChatGPT
-- "image generating": write text for DALL-E model at the field "DALL-E REQUEST"
+%INTENTS_DESCRIPTIONS%
 
 Let's start our communication protocol. Now answer correctly for my first request:
 {
   "CONTEXT": "",
   "MESSAGE": "%MESSAGE%",
-  "AVAILABLE_INTENTS": ["usual communication", "image generating"],
+  "AVAILABLE INTENTS": %AVAILABLE INTENTS%,
   "LAST INTENT": ""
 }"""
 
@@ -30,6 +28,6 @@ Let's start our communication protocol. Now answer correctly for my first reques
 dialog_prompt = """{
   "CONTEXT": "%CONTEXT%",
   "MESSAGE": "%MESSAGE%",
-  "AVAILABLE_INTENTS": ["usual communication", "image generating", "restart"],
+  "AVAILABLE INTENTS": %AVAILABLE INTENTS%,
   "LAST INTENT": "%LAST_INTENT%"
 }"""

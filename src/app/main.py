@@ -4,10 +4,11 @@ import time
 import telebot
 import openai
 import requests
-import json
 
+from src.config.classes import Plugin
 from src.config.config import config
 from src.prompts.prompts import start_prompt, dialog_prompt
+from src.app.openai_requests import send_chatgpt_message
 
 bot = telebot.TeleBot(config.telegram.token)
 openai.api_key = config.openai.token
@@ -27,135 +28,87 @@ def read_file(filepath: str):
     return file
 
 
-def send_chatgpt_message(message_object, text):
-    message_object["messages"].append(
-        {"role": "user", "content": text}
-    )
-    message_object["messages"] = message_object["messages"][-5:]
-    try:
-        completion = openai.ChatCompletion.create(
-            model=config.openai.model,
-            messages=message_object["messages"]
-        )
-    except openai.error.RateLimitError as e:
-        return "await"
-    answer = completion.choices[0].message.content
-    print(answer)
-    message_object["messages"].append(
-        {"role": "assistant", "content": start_prompt.replace("%MESSAGE%", answer)}
-    )
-
-    try:
-        answer = json.loads(answer)
-    except Exception as e:
-        return None
-    message_object["CONTEXT"] = answer["CONTEXT"]
-    message_object["LAST INTENT"] = answer["INTENT"]
-
-    return answer
+def send_too_often_requests(message):
+    bot.send_message(message.from_user.id, "Ты отправляешь сообщения слишком часто. Давай жди теперь")
+    msg = message_history[message.from_user.id]["messages"][-1]
+    message_history[message.from_user.id]["messages"] = message_history[message.from_user.id]["messages"][:-1]
+    time.sleep(60)
+    return send_chatgpt_message(message_history[message.from_user.id], msg)
 
 
-def send_stable_diffusion(prompt):
-    url = "https://stablediffusionapi.com/api/v3/text2img"
+def send_answer_with_good_response(response, message):
+    if response["RESPONSE"] == "":
+        response["RESPONSE"] = "..."
+    bot.send_message(message.from_user.id, response["RESPONSE"])
 
-    payload = {
-        "key": "KGw3TxYlcASGyZ2YFH0TlQuXnCFUt3MVSAX4k3j4folftuk4WydVWsxm3CdA",
-        "prompt": prompt,
-        "negative_prompt": None,
-        "width": "512",
-        "height": "512",
-        "samples": "1",
-        "num_inference_steps": "20",
-        "seed": None,
-        "guidance_scale": 7.5,
-        "safety_checker": "yes",
-        "multi_lingual": "no",
-        "panorama": "no",
-        "self_attention": "no",
-        "upscale": "no",
-        "embeddings_model": "embeddings_model_id",
-        "webhook": None,
-        "track_id": None
+
+def send_answer_with_bad_response(message):
+    bot.send_message(message.from_user.id, "Твоё сообщение всё сломало. Пиши новое")
+    message_history[message.from_user.id]["messages"] = message_history[message.from_user.id]["messages"][:-1]
+
+
+def process_response(response, message):
+    intents: dict[str, Plugin] = {intent.name:intent for intent in config.plugins}
+    if response == "await":
+        response = send_too_often_requests(message)
+    if response is not None:
+        send_answer_with_good_response(response, message)
+    else:
+        send_answer_with_bad_response(message)
+
+    intent = response["INTENT"]
+    if intent not in intents:
+        bot.send_message(message.from_user.id, "Пожелание не распознано")
+    elif intent == "restart_dialog":
+        del(message_history[message.from_user.id])
+        bot.send_message(message.from_user.id, "Контекст забыт. Следующее сообщение будет стартом нового диалога")
+    elif intents[intent].url is not None:
+        intent_response = requests.post(intents[intent].url, json={"message": message, "gpt_response": response})
+        intent_response = intent_response.json()
+        if "text" in intent_response:
+            bot.send_message(message.from_user.id, intent_response["text"])
+        if "image" in intent_response:
+            bot.send_photo(message.from_user.id, intent_response["image"])
+
+
+def start_dialog(message):
+    message_history[message.from_user.id] = {
+        "CONTEXT": "",
+        "LAST INTENT": "",
+        "messages": []
     }
 
-    response = requests.post(url, json=payload)
-    print(response)
-    print(response.text)
-    response = response.json()
+    response = send_chatgpt_message(
+        message_history[message.from_user.id],
+        start_prompt.replace("%MESSAGE%", message.text)
+    )
+    process_response(response, message)
+    return response
 
-    return response["output"][0]
+
+def continue_dialog(message):
+    message_object = message_history[message.from_user.id]
+    response = send_chatgpt_message(
+        message_object,
+        dialog_prompt.replace(
+            "%MESSAGE%", message.text
+        ).replace(
+            "%LAST INTENT%", message_object["LAST INTENT"],
+        ).replace(
+            "%CONTEXT%", message_object["CONTEXT"]
+        ).replace(
+            "%AVAILABLE INTENTS%",
+        )
+    )
+    process_response(response, message)
+    return response
 
 
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
     if message.from_user.id not in message_history:
-        message_history[message.from_user.id] = {
-            "CONTEXT": "",
-            "LAST INTENT": "",
-            "messages": []
-        }
-
-        response = send_chatgpt_message(
-            message_history[message.from_user.id],
-            start_prompt.replace("%MESSAGE%", message.text)
-        )
-        if response == "await":
-            bot.send_message(message.from_user.id, "Ты отправляешь сообщения слишком часто. Давай жди теперь")
-            time.sleep(40)
-            response = send_chatgpt_message(
-                message_history[message.from_user.id],
-                start_prompt.replace("%MESSAGE%", message.text)
-            )
-        if response is not None:
-            if response["RESPONSE"] == "":
-                response["RESPONSE"] = "..."
-            bot.send_message(message.from_user.id, response["RESPONSE"])
-        else:
-            bot.send_message(message.from_user.id, "Твоё сообщение всё сломало. Пиши новое")
+        start_dialog(message)
     else:
-        message_object = message_history[message.from_user.id]
-        response = send_chatgpt_message(
-            message_object,
-            dialog_prompt.replace(
-                "%MESSAGE%", message.text
-            ).replace(
-                "%LAST INTENT%", message_object["LAST INTENT"],
-            ).replace(
-                "%CONTEXT%", message_object["CONTEXT"]
-            )
-        )
-        if response == "await":
-            bot.send_message(message.from_user.id, "Ты отправляешь сообщения слишком часто. Давай жди теперь")
-            time.sleep(40)
-            response = send_chatgpt_message(
-                message_object,
-                dialog_prompt.replace(
-                    "%MESSAGE%", message.text
-                ).replace(
-                    "%LAST INTENT%", message_object["LAST INTENT"],
-                ).replace(
-                    "%CONTEXT%", message_object["CONTEXT"]
-                )
-            )
-        if response is not None:
-            if response["RESPONSE"] == "":
-                response["RESPONSE"] = "..."
-            bot.send_message(message.from_user.id, response["RESPONSE"])
-        else:
-            message_object["messages"] = message_object["messages"][:-1]
-            bot.send_message(message.from_user.id, "Твоё сообщение всё сломало. Пиши новое")
-
-    if response["INTENT"] == "image generating":
-        try:
-            link = send_stable_diffusion(response["DALL-E REQUEST"])
-            bot.send_photo(message.from_user.id, link)
-        except Exception as e:
-            bot.send_message("Не получилось достучаться до Stable Diffusion. Что-то не так")
-            logging.error(e)
-
-
-
-
-
+        continue_dialog(message)
 
 

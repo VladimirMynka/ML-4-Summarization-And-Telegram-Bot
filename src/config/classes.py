@@ -32,7 +32,7 @@ class LuhnConfig:
 @dataclass
 class Plugin:
     name: str
-    url: str
+    url: str | None
     description: str
 
 
@@ -42,3 +42,5 @@ class Config:
     openai: OpenAIConfig
     logger: LoggerConfig
     luhn: LuhnConfig
+
+    plugins: list[Plugin]
