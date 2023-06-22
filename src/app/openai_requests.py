@@ -1,9 +1,11 @@
 import openai
+import logging
 from src.config.config import config
 import json
 
 
 def send_chatgpt_message(message_object, text):
+    logging.debug(text)
     message_object["messages"].append(
         {"role": "user", "content": text}
     )
@@ -16,7 +18,7 @@ def send_chatgpt_message(message_object, text):
     except openai.error.RateLimitError as e:
         return "await"
     answer = completion.choices[0].message.content
-    print(answer)
+    logging.debug(answer)
     message_object["messages"].append(
         {"role": "assistant", "content": answer}
     )

@@ -1,5 +1,6 @@
 import logging
 from src.config.classes import LoggerConfig
+from src.config.config import config
 
 
 def init_logging(config: LoggerConfig = None):
@@ -17,3 +18,11 @@ def init_logging(config: LoggerConfig = None):
         format=config.format,
         datefmt=config.date_format
     )
+
+
+def get_available_intents():
+    return "[" + ", ".join([intent.name for intent in config.plugins]) + "]"
+
+
+def get_intents_description():
+    return "\n".join(["- " + intent.name + ": " + intent.description for intent in config.plugins])

@@ -10,7 +10,8 @@ Your answers must be in a form
 {
   "CONTEXT": "<summarized context of my context block and new message block>",
   "RESPONSE": "<your answer to message or some technical information like a prompt for DALL-E model>",
-  "INTENT": "<something from AVAILABLE INTENTS. You must recognize it>"
+  "INTENT": "<something from AVAILABLE INTENTS. You must recognize it>"б
+  <some another fields if intent requires>
 }
 
 Your action for different intents:
@@ -29,5 +30,5 @@ dialog_prompt = """{
   "CONTEXT": "%CONTEXT%",
   "MESSAGE": "%MESSAGE%",
   "AVAILABLE INTENTS": %AVAILABLE INTENTS%,
-  "LAST INTENT": "%LAST_INTENT%"
+  "LAST INTENT": "%LAST INTENT%"
 }"""

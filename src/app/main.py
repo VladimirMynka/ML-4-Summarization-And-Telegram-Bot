@@ -9,6 +9,7 @@ from src.config.classes import Plugin
 from src.config.config import config
 from src.prompts.prompts import start_prompt, dialog_prompt
 from src.app.openai_requests import send_chatgpt_message
+from src.app.utils import get_intents_description, get_available_intents
 
 bot = telebot.TeleBot(config.telegram.token)
 openai.api_key = config.openai.token
@@ -19,7 +20,7 @@ message_history = {}
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    bot.send_message(message.from_user.id, "Пошёл в жопу")
+    bot.send_message(message.from_user.id, "Привет. Чем тебе помочь?")
 
 
 def read_file(filepath: str):
@@ -48,13 +49,14 @@ def send_answer_with_bad_response(message):
 
 
 def process_response(response, message):
-    intents: dict[str, Plugin] = {intent.name:intent for intent in config.plugins}
+    intents: dict[str, Plugin] = {intent.name: intent for intent in config.plugins}
     if response == "await":
         response = send_too_often_requests(message)
     if response is not None:
         send_answer_with_good_response(response, message)
     else:
         send_answer_with_bad_response(message)
+        return
 
     intent = response["INTENT"]
     if intent not in intents:
@@ -63,10 +65,15 @@ def process_response(response, message):
         del(message_history[message.from_user.id])
         bot.send_message(message.from_user.id, "Контекст забыт. Следующее сообщение будет стартом нового диалога")
     elif intents[intent].url is not None:
-        intent_response = requests.post(intents[intent].url, json={"message": message, "gpt_response": response})
+        bot.send_message(message.from_user.id, f"Сейчас работает плагин {intent}")
+        intent_response = requests.post(intents[intent].url, json={"message": message.text, "gpt_response": response})
         intent_response = intent_response.json()
+        logging.debug(intent_response)
         if "text" in intent_response:
-            bot.send_message(message.from_user.id, intent_response["text"])
+            if intent_response["text"] != "":
+                bot.send_message(message.from_user.id, intent_response["text"])
+            else:
+                bot.send_message(message.from_user.id, "Плагин отправил пустой ответ")
         if "image" in intent_response:
             bot.send_photo(message.from_user.id, intent_response["image"])
 
@@ -80,7 +87,13 @@ def start_dialog(message):
 
     response = send_chatgpt_message(
         message_history[message.from_user.id],
-        start_prompt.replace("%MESSAGE%", message.text)
+        start_prompt.replace(
+            "%MESSAGE%", message.text
+        ).replace(
+            "%AVAILABLE INTENTS%", get_available_intents()
+        ).replace(
+            "%INTENTS_DESCRIPTIONS%", get_intents_description()
+        )
     )
     process_response(response, message)
     return response
@@ -97,7 +110,7 @@ def continue_dialog(message):
         ).replace(
             "%CONTEXT%", message_object["CONTEXT"]
         ).replace(
-            "%AVAILABLE INTENTS%",
+            "%AVAILABLE INTENTS%", get_available_intents()
         )
     )
     process_response(response, message)

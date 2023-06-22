@@ -4,3 +4,4 @@
 ~/data/.gitkeep
 /.idea
 /.ipynb_checkpoints/experiments-checkpoint.ipynb
+/src/app/plugins/stable_diffusion/secret.txt
