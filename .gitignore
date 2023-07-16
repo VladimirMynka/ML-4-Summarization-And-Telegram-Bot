@@ -2,6 +2,7 @@
 /secrets.txt
 /data/*
 ~/data/.gitkeep
+~/data/plugins_configs/*
 /.idea
 /.ipynb_checkpoints/experiments-checkpoint.ipynb
 /src/app/plugins/stable_diffusion/secret.txt
