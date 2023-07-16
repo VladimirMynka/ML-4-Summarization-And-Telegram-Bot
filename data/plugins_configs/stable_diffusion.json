@@ -1,0 +1,4 @@
+{
+  "url": "http://127.0.0.1:6017/",
+  "description": "The user wants to generate an image. Add a new field 'STABLE DIFFUSION' to your JSON and insert the request for the stable diffusion model into it. If you want more information about generating, you can ask for it in the RESPONSE, but make sure to generate a request for Stable Diffusion regardless."
+}
