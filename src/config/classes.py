@@ -43,4 +43,6 @@ class Config:
     logger: LoggerConfig
     luhn: LuhnConfig
 
+    plugins_directory: str
+    plugins_source_directory: str
     plugins: list[Plugin]

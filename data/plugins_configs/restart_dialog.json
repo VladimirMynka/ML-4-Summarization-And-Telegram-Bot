@@ -1,0 +1,4 @@
+{
+  "url": null,
+  "description": "User wants to restart the dialog and clear context. They may write something like: 'stop', 'restart', or 'I want to restart our dialog'. Keep the RESPONSE field empty."
+}

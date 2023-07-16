@@ -1,6 +1,8 @@
+import json
 import logging
-from src.config.classes import LoggerConfig
-from src.config.config import config
+import os
+
+from src.config.classes import LoggerConfig, Plugin, Config
 
 
 def init_logging(config: LoggerConfig = None):
@@ -20,9 +22,29 @@ def init_logging(config: LoggerConfig = None):
     )
 
 
-def get_available_intents():
-    return "[" + ", ".join([intent.name for intent in config.plugins]) + "]"
+def json_load_file(path: str):
+    with open(path, 'r') as f:
+        json_content = json.load(f)
+    return json_content
 
 
-def get_intents_description():
+def update_config(config: Config):
+    paths = os.listdir(config.plugins_directory)
+    plugins = []
+    for path in paths:
+        if path.split(".")[-1] != "json":
+            continue
+        content = json_load_file(os.path.join(config.plugins_directory, path))
+        content["name"] = path.split(".")[0]
+        plugins.append(Plugin(**content))
+
+    config.plugins = plugins
+    return config
+
+
+def get_available_intents(config: Config):
+    return "[\"" + "\", \"".join([intent.name for intent in config.plugins]) + "\"]"
+
+
+def get_intents_description(config: Config):
     return "\n".join(["- " + intent.name + ": " + intent.description for intent in config.plugins])
